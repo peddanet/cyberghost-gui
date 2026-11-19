@@ -1,0 +1,91 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cyberghost-gui"
+description = "Unofficial desktop front end for switching OpenVPN targets of a CyberGhost subscription"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+dynamic = ["version"]
+dependencies = []  # PyGObject comes from the distribution (see README)
+
+[project.scripts]
+cghost-gui = "cghostgui.application:main"
+cghost-gui-reload = "cghostgui.reload:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "cghostgui.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# --- pytest -----------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+# resource leaks (unclosed files, processes) fail the test run
+filterwarnings = [
+  "error::ResourceWarning",
+  "error::pytest.PytestUnraisableExceptionWarning",
+]
+
+# --- pylint -----------------------------------------------------------------
+# Docstrings follow the Google style and are enforced by the docparams extension.
+[tool.pylint.main]
+load-plugins = ["pylint.extensions.docparams", "pylint.extensions.docstyle"]
+py-version = "3.12"
+init-hook = "import sys; sys.path[:0] = ['src', 'tests']"
+
+[tool.pylint.typecheck]
+ignored-modules = ["gi", "gi.repository"]
+
+[tool.pylint.format]
+max-line-length = 100
+
+[tool.pylint.parameter_documentation]
+default-docstring-type = "google"
+accept-no-param-doc = false
+accept-no-raise-doc = false
+accept-no-return-doc = false
+accept-no-yields-doc = false
+
+[tool.pylint.design]
+max-args = 10
+max-positional-arguments = 10
+max-attributes = 12
+max-locals = 22
+min-public-methods = 1
+
+# --- mypy -------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+files = ["src"]
+mypy_path = ["src"]
+explicit_package_bases = true
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unreachable = true
+
+[[tool.mypy.overrides]]
+module = ["gi", "gi.*"]
+ignore_missing_imports = true
+
+# --- coverage ---------------------------------------------------------------
+[tool.coverage.run]
+source = ["cghostgui"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 90
+precision = 2
+show_missing = true
+skip_covered = true
+
+# --- bandit -----------------------------------------------------------------
+[tool.bandit]
+# B404/B603: external programs are started with argument lists, never a shell.
+# B607: the program is resolved through PATH on purpose (nmcli, gdbus).
+skips = ["B404", "B603", "B607"]

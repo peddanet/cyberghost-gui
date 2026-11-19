@@ -1,0 +1,10 @@
+#!/bin/sh
+# NetworkManager dispatcher: block public IPv6 while the CyberGhost GUI VPN is up.
+# CyberGhost tunnels IPv4 only; without this block IPv6 would bypass the tunnel.
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+[ "$CONNECTION_ID" = "CyberGhost-GUI" ] || exit 0
+case "$2" in
+    vpn-up)   ip -6 route replace unreachable 2000::/3 metric 1 ;;
+    vpn-down) ip -6 route del unreachable 2000::/3 metric 1 2>/dev/null || true ;;
+esac
+exit 0
