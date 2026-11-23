@@ -33,12 +33,13 @@ traffic leaves directly.
 ## Install
 
 ~~~bash
-git clone https://github.com/OWNER/cyberghost-gui.git
-cd cyberghost-gui
-./install.sh ~/Downloads/cyberghostvpn-ubuntu-22.04-1.5.0.zip
+git clone https://github.com/OWNER/cyberghost-gui.git ~/Projects/cyberghost-gui
+cd ~/Projects/cyberghost-gui
+./install.sh vX.Y.Z ~/Downloads/cyberghostvpn-ubuntu-22.04-1.5.0.zip
 ~~~
 
-Run it as a normal user. See [docs/user-guide.md](docs/user-guide.md) for the
+Run it as a normal user; `install.sh` installs only release tags (see the tags of
+the repository for the newest one). See [docs/user-guide.md](docs/user-guide.md) for the
 first start and [docs/developer.md](docs/developer.md) for the architecture.
 
 ## License

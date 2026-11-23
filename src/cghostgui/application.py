@@ -9,10 +9,12 @@ gi.require_version("Gtk", "4.0")
 # pylint: disable=wrong-import-position
 from gi.repository import Gio, GLib, Gtk  # noqa: E402
 
-from cghostgui import paths  # noqa: E402
+from cghostgui import __version__, migrate, paths  # noqa: E402
+from cghostgui.errors import CgError  # noqa: E402
 from cghostgui.window import Window  # noqa: E402
 
 HIDDEN = "--hidden"
+VERSION = "--version"
 
 
 class Application(Gtk.Application):
@@ -107,9 +109,20 @@ class Application(Gtk.Application):
 
 
 def main() -> int:
-    """Run the application.
+    """Run the application, or print its version with ``--version``.
+
+    Files of the old folder layout are moved first (see :mod:`cghostgui.migrate`);
+    a failure there is reported and does not stop the start.
 
     Returns:
         Exit code.
     """
+    if VERSION in sys.argv[1:]:
+        print(f"{paths.NAME} {__version__}")
+        return 0
+    try:
+        for line in migrate.migrate():
+            print(line, file=sys.stderr)
+    except (OSError, CgError) as error:
+        print(f"Umzug der alten Dateien fehlgeschlagen: {error}", file=sys.stderr)
     return int(Application(hidden=HIDDEN in sys.argv[1:]).run([]))

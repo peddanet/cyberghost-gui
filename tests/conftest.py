@@ -41,6 +41,9 @@ def environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Non
     fake = FakeSystem()
     CURRENT.append(fake)
     monkeypatch.setenv("CGHOST_GUI_HOME", str(tmp_path / "app"))
+    for variable, folder in (("XDG_CONFIG_HOME", "config"), ("XDG_DATA_HOME", "data"),
+                             ("XDG_CACHE_HOME", "cache")):
+        monkeypatch.setenv(variable, str(tmp_path / folder))
     monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))
     monkeypatch.setattr(paths, "vendor_home", lambda: tmp_path / "vendor-home")
     binary = paths.vendor_binary()

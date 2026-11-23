@@ -39,7 +39,7 @@ def write_settings(data: dict[str, Any]) -> None:
     Args:
         data: Settings.
     """
-    private_dir(paths.app_dir())
+    private_dir(paths.config_dir())
     target = paths.settings_file()
     target.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
     target.chmod(0o600)
