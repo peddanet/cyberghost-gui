@@ -10,8 +10,8 @@ from gi.repository import Gio, GLib, Gtk  # noqa: E402
 
 from cghostgui import __version__, connector, diagnostics, profile, store, vpn  # noqa: E402
 from cghostgui.catalog import Catalog  # noqa: E402
-from cghostgui.dialogs import InputDialog, padded  # noqa: E402
-from cghostgui.errors import AuthRejected, CgError, LoginRequired  # noqa: E402
+from cghostgui.dialogs import ChoiceDialog, InputDialog, padded  # noqa: E402
+from cghostgui.errors import AuthRejected, CgError, LoginRejected, LoginRequired  # noqa: E402
 from cghostgui.keyring import Keyring  # noqa: E402
 from cghostgui.pick import Pick  # noqa: E402
 
@@ -186,8 +186,10 @@ class Window(Gtk.ApplicationWindow):
             self.refresh_state()
             if isinstance(error, LoginRequired):
                 self._ask_login(str(error), retry)
+            elif isinstance(error, LoginRejected):
+                self._keep_or_replace_account(str(error), retry)
             elif isinstance(error, AuthRejected):
-                self._ask_vpn_login(str(error))
+                self._keep_or_replace_vpn(str(error))
             elif error:
                 self.say(f"Fehler: {error}")
             elif done:
@@ -362,8 +364,7 @@ class Window(Gtk.ApplicationWindow):
             try:
                 host = connector.switch(self.catalog, target, template, password)
             except AuthRejected:
-                self.vpn_password = None
-                Keyring.clear("openvpn")  # a wrong password must not be retried forever
+                self.vpn_password = None  # read again from the key ring; never discarded here
                 raise
             return [f"Verbunden mit {host}", *diagnostics.check(lan)]
 
@@ -391,6 +392,36 @@ class Window(Gtk.ApplicationWindow):
         self._remember()
         self.background(lambda: diagnostics.check(lan), lambda lines: self.say("\n".join(lines)),
                         "Prüfe …")
+
+    def _keep_or_replace_vpn(self, why: str) -> None:
+        """Let the user decide whether the stored OpenVPN login is replaced.
+
+        Args:
+            why: Reason.
+        """
+        self.say(f"{why}. VPN ist getrennt. Das gespeicherte Passwort bleibt erhalten.")
+        ChoiceDialog(self, "OpenVPN-Anmeldung abgelehnt",
+                     f"{why}.\n\nDas gespeicherte OpenVPN-Passwort bleibt, bis Sie ein neues "
+                     "eingeben.",
+                     [("Gespeichertes Passwort erneut versuchen", self.start_connect),
+                      ("Neuen Benutzernamen und neues Passwort eingeben",
+                       lambda: self._ask_vpn_login(why)),
+                      ("Abbrechen", lambda: None)])
+
+    def _keep_or_replace_account(self, why: str, retry: Callable[[], None] | None) -> None:
+        """Let the user decide whether the stored account password is replaced.
+
+        Args:
+            why: Reason.
+            retry: Repeats the interrupted action.
+        """
+        self.say(f"{why} Das gespeicherte Passwort bleibt erhalten.")
+        ChoiceDialog(self, "CyberGhost-Konto: Anmeldung abgelehnt",
+                     f"{why}\n\nDas gespeicherte Konto-Passwort bleibt, bis Sie ein neues "
+                     "eingeben.",
+                     [("Gespeichertes Passwort erneut versuchen", retry or (lambda: None)),
+                      ("Neues Konto-Passwort eingeben", lambda: self._ask_login(why, retry)),
+                      ("Abbrechen", lambda: None)])
 
     def _ask_vpn_login(self, why: str) -> None:
         """Ask for corrected OpenVPN credentials.
@@ -470,21 +501,23 @@ class Window(Gtk.ApplicationWindow):
                 retry()
 
         def ask_password() -> None:
-            self._ask_secret("CyberGhost-Konto-Passwort", why, "account", got_password)
+            self._ask_secret("CyberGhost-Konto: Passwort",
+                             f"{why}\n\nGemeint ist das Passwort, mit dem Sie sich auf "
+                             "cyberghostvpn.com anmelden. Es wird im Schlüsselbund gespeichert "
+                             "und nur ersetzt, wenn Sie es selbst neu eingeben.",
+                             "account", got_password)
 
         def got_user(user: str) -> None:
             self.settings["account_user"] = self.catalog.username = user.strip()
             store.write_settings(self.settings)
             ask_password()
 
-        rejected = "abgelehnt" in why
-        if rejected:
-            Keyring.clear("account")
-        if self.catalog.username and not rejected:
+        if self.catalog.username:
             ask_password()
         else:
-            InputDialog(self, "CyberGhost-Konto-Benutzername", why, got_user,
-                        self.catalog.username or "")
+            InputDialog(self, "CyberGhost-Konto: E-Mail-Adresse",
+                        f"{why}\n\nGemeint ist die E-Mail-Adresse bzw. der Benutzername Ihres "
+                        "CyberGhost-Kontos.", got_user, "")
 
     def _ask_secret(self, title: str, hint: str, kind: str,
                     callback: Callable[[str], None]) -> None:

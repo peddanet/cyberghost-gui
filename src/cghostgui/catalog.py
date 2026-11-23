@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from cghostgui import paths, proc, store
-from cghostgui.errors import CgError, LoginRequired
+from cghostgui.errors import CgError, LoginRejected, LoginRequired
 from cghostgui.models import City, Server
 
 TTL_LISTS = 24 * 3600
@@ -84,18 +84,23 @@ class Catalog:
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
             handle.write(f"[account]\nusername = {user}\npassword = {password}\n")
 
-    def _cli(self, args: list[str]) -> str:
+    def _cli(self, args: list[str], retried: bool = False) -> str:
         """Run one list query.
+
+        An expired session of the program is renewed once with the stored password.
+        A password is never discarded here.
 
         Args:
             args: Program arguments.
+            retried: True for the repetition after an expired session.
 
         Returns:
             Program output containing a table.
 
         Raises:
             CgError: The program is missing or printed no table.
-            LoginRequired: A login is missing or was refused.
+            LoginRequired: A password is needed.
+            LoginRejected: The server refused the password.
         """
         binary = paths.vendor_binary()
         if not os.access(binary, os.X_OK):
@@ -103,8 +108,10 @@ class Catalog:
         config = self._home / "config.ini"
         token = self._home / "token"
         temporary = not self._has_own_config()
-        if temporary and not self.password and not (token.is_file() and token.stat().st_size):
-            raise LoginRequired("CyberGhost-Login für die Serverliste nötig")
+        session = token.is_file() and token.stat().st_size > 0
+        if temporary and not self.password and not session:
+            raise LoginRequired("Für die Serverliste wird das Passwort Ihres CyberGhost-Kontos "
+                                "benötigt.")
         env = {key: value for key, value in os.environ.items() if key != "SUDO_USER"}
         env["USER"] = getpass.getuser()
         try:
@@ -116,9 +123,14 @@ class Catalog:
                 config.unlink(missing_ok=True)
         text = f"{result.out}\n{result.err}".strip()
         if re.search(r"Wrong login|Authentication error|Bearer", text, re.I):
-            token.unlink(missing_ok=True)
-            self.password = None
-            raise LoginRequired("CyberGhost-Login abgelehnt")
+            token.unlink(missing_ok=True)  # the session is renewed with the password
+            if session and not retried and (self.password or not temporary):
+                return self._cli(args, retried=True)
+            if temporary and not self.password:
+                raise LoginRequired("Die CyberGhost-Sitzung ist abgelaufen; für eine neue wird "
+                                    "das Passwort Ihres CyberGhost-Kontos benötigt.")
+            raise LoginRejected("CyberGhost hat die Anmeldung mit dem gespeicherten "
+                                "Konto-Passwort abgelehnt.")
         if "|" not in result.out:
             raise CgError(text.splitlines()[-1] if text
                           else f"CyberGhost-Programm: Exit {result.code}")

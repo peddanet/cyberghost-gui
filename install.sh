@@ -58,7 +58,7 @@ if [ ! -x "$DEST/vendor/cyberghostvpn" ]; then
     chmod 700 "$DEST/vendor/cyberghostvpn"
 fi
 
-echo "[5/6] menu entry and IPv6 rule (sudo)"
+echo "[5/6] menu entry, autostart and IPv6 rule (sudo)"
 install -d "$HOME/.local/share/applications"
 cat > "$HOME/.local/share/applications/cyberghost-gui.desktop" <<DESK
 [Desktop Entry]
@@ -68,6 +68,19 @@ Exec=$DEST/venv/bin/cghost-gui
 Icon=network-vpn
 Terminal=false
 Categories=Network;
+DESK
+# Autostart after login: hidden window, icon only. The delay lets the panel get ready
+# to show indicator icons first.
+install -d "$HOME/.config/autostart"
+cat > "$HOME/.config/autostart/cyberghost-gui.desktop" <<DESK
+[Desktop Entry]
+Type=Application
+Name=CyberGhost VPN (GUI)
+Exec=$DEST/venv/bin/cghost-gui --hidden
+Icon=network-vpn
+Terminal=false
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=10
 DESK
 if (( APT )); then
     sudo install -o root -g root -m 755 "$SRC/data/90-cyberghost-gui-ipv6" "$RULE"

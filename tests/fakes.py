@@ -106,6 +106,7 @@ class FakeSystem:  # pylint: disable=too-many-instance-attributes
         self.ipv6_route = Result(2, "", "unreachable")
         self.ping_ok = True
         self.vendor_output: str | None = None
+        self.vendor_session_expired = False
         self.ages = "65\n"
 
     def popen(self, cmd: list[str], **_: Any) -> FakeProcess:
@@ -211,6 +212,9 @@ class FakeSystem:  # pylint: disable=too-many-instance-attributes
             return Result(1, self.vendor_output, "")
         home = paths.vendor_home()
         config = (home / "config.ini").read_text(encoding="utf-8")
+        if self.vendor_session_expired and (home / "token").exists():
+            self.vendor_session_expired = False
+            return Result(1, "Authentication Error: Bearer not provided!\n", "")
         if not (home / "token").exists():
             if f"password = {ACCOUNT_PASSWORD.replace('$', '$$')}" not in config:
                 return Result(1, "Authentication error! Wrong login credentials\n", "")

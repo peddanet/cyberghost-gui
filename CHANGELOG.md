@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.1
+
+* Stored passwords are never discarded automatically. An expired CyberGhost session is
+  renewed with the stored account password; a refused password leads to a question
+  whether to retry it or to enter a new one.
+* Clearer login dialogs: account e-mail address and account password are named as such.
+* `install.sh` sets up autostart after login (window hidden, icon only).
+* `first-publish.sh`: final hint uses a `gh repo edit` option every version knows.
+
 ## 0.5.0
 
 First public version.

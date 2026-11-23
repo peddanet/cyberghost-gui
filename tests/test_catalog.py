@@ -9,7 +9,7 @@ from fakes import ACCOUNT_PASSWORD
 
 from cghostgui import paths
 from cghostgui.catalog import Catalog, parse_table
-from cghostgui.errors import CgError, LoginRequired
+from cghostgui.errors import CgError, LoginRejected, LoginRequired
 
 
 def logged_in() -> Catalog:
@@ -38,9 +38,8 @@ def test_wrong_login_is_forgotten() -> None:
     """A rejected password is dropped and leaves no login file."""
     catalog = Catalog()
     catalog.password = "wrong"
-    with pytest.raises(LoginRequired, match="abgelehnt"):
+    with pytest.raises(LoginRejected, match="abgelehnt"):
         catalog.countries()
-    assert catalog.password is None
     assert not (paths.vendor_home() / "config.ini").exists()
 
 
@@ -115,3 +114,33 @@ def test_damaged_client_login_is_replaced() -> None:
     home.mkdir()
     (home / "config.ini").write_text("no section", encoding="utf-8")
     assert logged_in().countries()
+
+
+def test_expired_session_is_renewed_with_stored_password() -> None:
+    """An expired session is renewed once; the password is kept."""
+    catalog = logged_in()
+    home = paths.vendor_home()
+    home.mkdir(exist_ok=True)
+    (home / "token").write_text("old", encoding="utf-8")
+    system().vendor_session_expired = True
+    assert catalog.countries()[0][0] == "DE"
+    assert catalog.password == ACCOUNT_PASSWORD
+
+
+def test_expired_session_without_password_asks() -> None:
+    """Without a stored password an expired session asks for it."""
+    home = paths.vendor_home()
+    home.mkdir()
+    (home / "token").write_text("old", encoding="utf-8")
+    system().vendor_session_expired = True
+    with pytest.raises(LoginRequired, match="abgelaufen"):
+        Catalog().countries()
+
+
+def test_refused_password_is_kept() -> None:
+    """A refused password stays in memory and raises a decision."""
+    catalog = Catalog()
+    catalog.password = "wrong"
+    with pytest.raises(LoginRejected):
+        catalog.countries()
+    assert catalog.password == "wrong"

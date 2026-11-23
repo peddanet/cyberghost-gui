@@ -1,5 +1,5 @@
 """Small input dialog."""
-from typing import Any, Callable
+from typing import Any, Callable, Sequence
 
 import gi
 gi.require_version("Gtk", "4.0")
@@ -64,3 +64,39 @@ class InputDialog(Gtk.Window):
         if text.strip():
             self.destroy()
             self._on_value(text)
+
+
+class ChoiceDialog(Gtk.Window):
+    """Offers a few actions as buttons; closing the window chooses nothing."""
+
+    def __init__(self, parent: Gtk.Window, title: str, hint: str,
+                 choices: Sequence[tuple[str, Callable[[], None]]]) -> None:
+        """Create and show the dialog.
+
+        Args:
+            parent: Parent window.
+            title: Window title.
+            hint: Explanation.
+            choices: Pairs of button label and action.
+        """
+        super().__init__(title=title, transient_for=parent, modal=True, default_width=420)
+        self._actions = [action for _, action in choices]
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        box.append(Gtk.Label(label=hint, xalign=0, wrap=True))
+        for index, (label, _) in enumerate(choices):
+            button = Gtk.Button(label=label)
+            if index == 0:
+                button.add_css_class("suggested-action")
+            button.connect("clicked", lambda _b, i=index: self.choose(i))
+            box.append(button)
+        self.set_child(padded(box))
+        self.present()
+
+    def choose(self, index: int) -> None:
+        """Close the dialog and run one action.
+
+        Args:
+            index: Position of the action.
+        """
+        self.destroy()
+        self._actions[index]()

@@ -9,5 +9,9 @@ class LoginRequired(CgError):
     """The server lists need the CyberGhost account login."""
 
 
+class LoginRejected(CgError):
+    """The account login was refused although a password was sent."""
+
+
 class AuthRejected(CgError):
     """The VPN server answered AUTH_FAILED."""

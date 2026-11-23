@@ -70,6 +70,6 @@ step "install this release and switch the running application"
 cat <<DONE
 
 Done. The repository is private. After reviewing it on GitHub:
-  gh repo edit --visibility public --accept-visibility-change-consequences
+  gh repo edit --visibility public
   tools/protect-branches.sh
 DONE

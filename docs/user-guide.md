@@ -33,7 +33,13 @@ the NetworkManager rule that blocks public IPv6.
 5. Choose **Land** and click **Verbinden**. Enter the **Password** from the page.
    It is not your account password.
 
-Each password is asked once and stored in the desktop key ring.
+Each password is asked once and stored in the desktop key ring. A stored password
+is never removed automatically: if it is refused, the application asks whether to
+try it again or to enter a new one. An expired session of the server lists is
+renewed with the stored account password without asking.
+
+After login the application starts by itself with the window hidden; the panel icon
+opens it.
 
 ## Use case: change the target
 

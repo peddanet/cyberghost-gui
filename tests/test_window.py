@@ -183,17 +183,32 @@ def test_password_asked_once(window: Window) -> None:
     assert window.ui.state.get_text() == "Nicht verbunden"
 
 
-def test_rejected_login_asks_again(window: Window) -> None:
-    """After a rejection user name and password are asked again.
+def choose(title: str, index: int) -> None:
+    """Pick a button of an open choice dialog.
+
+    Args:
+        title: Dialog title.
+        index: Button position.
+    """
+    dialog(title).choose(index)
+
+
+def test_rejected_vpn_login_is_kept_until_replaced(window: Window) -> None:
+    """A refused OpenVPN password stays until the user enters a new one.
 
     Args:
         window: Window.
     """
     system().keyring["openvpn"] = "wrong"
     window.start_connect()
+    choose("OpenVPN-Anmeldung abgelehnt", 0)
+    choose("OpenVPN-Anmeldung abgelehnt", 2)
+    assert system().keyring["openvpn"] == "wrong"
+    window.start_connect()
+    choose("OpenVPN-Anmeldung abgelehnt", 1)
     answer("OpenVPN-Benutzername", " newuser ")
     assert system().username == "newuser"
-    assert "openvpn" not in system().keyring
+    assert system().keyring["openvpn"] == "wrong"
     answer("OpenVPN-Passwort", VPN_PASSWORD)
     idle(window)
     assert system().state == "activated"
@@ -320,8 +335,8 @@ def test_login_flow() -> None:
     """Without a login the user is asked once and the lists appear."""
     seed_profile()
     win = Window(app())
-    answer("CyberGhost-Konto-Benutzername", "me")
-    answer("CyberGhost-Konto-Passwort", ACCOUNT_PASSWORD)
+    answer("CyberGhost-Konto: E-Mail-Adresse", "me")
+    answer("CyberGhost-Konto: Passwort", ACCOUNT_PASSWORD)
     pump(lambda: bool(win.ui.country.values))
     idle(win)
     assert system().keyring["account"] == ACCOUNT_PASSWORD
@@ -329,19 +344,23 @@ def test_login_flow() -> None:
     win.destroy()
 
 
-def test_rejected_account_password() -> None:
-    """A refused account password is removed and asked again."""
+def test_rejected_account_password_is_kept() -> None:
+    """A refused account password is kept until the user enters a new one."""
     system().keyring["account"] = "wrong"
     store.write_settings({"account_user": "me"})
     win = Window(app())
-    answer("CyberGhost-Konto-Benutzername", "me")
-    assert "account" not in system().keyring
-    answer("CyberGhost-Konto-Passwort", ACCOUNT_PASSWORD)
+    choose("CyberGhost-Konto: Anmeldung abgelehnt", 0)
+    choose("CyberGhost-Konto: Anmeldung abgelehnt", 2)
+    assert system().keyring["account"] == "wrong"
+    win.read_lists(True)
+    choose("CyberGhost-Konto: Anmeldung abgelehnt", 1)
+    answer("CyberGhost-Konto: Passwort", ACCOUNT_PASSWORD)
     pump(lambda: bool(win.ui.country.values))
     idle(win)
+    assert system().keyring["account"] == ACCOUNT_PASSWORD
     win.catalog.password = None
     win._ask_login("Login nötig", None)
-    answer("CyberGhost-Konto-Passwort", ACCOUNT_PASSWORD)
+    answer("CyberGhost-Konto: Passwort", ACCOUNT_PASSWORD)
     win.destroy()
 
 
