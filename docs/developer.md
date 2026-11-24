@@ -60,12 +60,28 @@ sequenceDiagram
 A host that does not resolve leaves a running tunnel untouched. `AUTH_FAILED`
 stops the attempt at once, removes the stored OpenVPN password and asks again.
 
-## Update and live switch
+## Folders
 
-`install.sh` installs into the venv, then `cghost-gui-reload` activates the action
-`reload` over the session bus. The application waits until no job runs, ends the
-indicator and replaces itself with `os.execv`. NetworkManager holds the VPN, so
-the connection is not interrupted.
+`paths` follows the XDG base directories: `config_dir()` (settings, imported
+configuration), `data_dir()` (venv, official program) and `cache_dir()` (server
+lists). `legacy_dir()` names the single folder of releases up to 0.5.1;
+`migrate` moves its files once, never overwriting. The configuration files are
+referenced by the NetworkManager profile, so they are copied, the profile entries
+that point into the old folder are changed with `nmcli connection modify
++vpn.data <entry>=<new path>`, and the old files are removed only while the VPN
+is down.
+
+## Release, install and live switch
+
+`tools/release.sh` (see CONTRIBUTING.md) merges through pull requests and tags
+the release. `install.sh vX.Y.Z` installs only that tag, as it is on origin,
+into the venv, links `~/.local/bin/cyberghost-gui` and checks `--version`. Then
+`cghost-gui-reload` activates the action `reload` over the session bus. The
+application waits until no job runs, ends the indicator and replaces itself with
+`os.execv`. NetworkManager holds the VPN, so the connection is not interrupted.
+An application still running from the venv of the old layout cannot switch
+itself to the new venv; `install.sh` ends it through the action `quit` and starts
+the new release with the window hidden.
 
 ## Tests
 

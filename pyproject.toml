@@ -12,6 +12,7 @@ dynamic = ["version"]
 dependencies = []  # PyGObject comes from the distribution (see README)
 
 [project.scripts]
+cyberghost-gui = "cghostgui.application:main"
 cghost-gui = "cghostgui.application:main"
 cghost-gui-reload = "cghostgui.reload:main"
 

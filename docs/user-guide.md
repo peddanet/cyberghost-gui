@@ -4,22 +4,33 @@ The user interface is German; the terms below are the labels you will see.
 
 ## Install
 
+From a clone in `~/Projects/cyberghost-gui`, as a normal user; only a release tag
+is installed, never the working tree:
+
 ~~~bash
-./install.sh ~/Downloads/cyberghostvpn-ubuntu-22.04-1.5.0.zip
+cd ~/Projects/cyberghost-gui && git fetch --tags origin && ./install.sh vX.Y.Z ~/Downloads/cyberghostvpn-ubuntu-22.04-1.5.0.zip
 ~~~
 
-Run as a normal user. The script uses `sudo` only for system packages and for
-the NetworkManager rule that blocks public IPv6.
+The script uses `sudo` only for system packages and for the NetworkManager rule
+that blocks public IPv6. Afterwards the command `cyberghost-gui` is available
+(`~/.local/bin` is in the search path after the next login).
 
 | Location | Content |
 |---|---|
-| `~/scripts/cyberghost-gui/venv` | installed program |
-| `~/scripts/cyberghost-gui/vendor` | official program, used for server lists |
-| `~/scripts/cyberghost-gui/profile` | imported configuration, mode 600 |
-| `~/scripts/cyberghost-gui/cache` | server lists |
-| `~/scripts/cyberghost-gui/settings.json` | selection, user names |
+| `~/.local/share/cyberghost-gui/venv` | installed program |
+| `~/.local/share/cyberghost-gui/vendor` | official program, used for server lists |
+| `~/.local/bin/cyberghost-gui` | command, link into the installed program |
+| `~/.config/cyberghost-gui/profile` | imported configuration, mode 600 |
+| `~/.config/cyberghost-gui/settings.json` | selection, user names |
+| `~/.config/cyberghost-gui/privacy` | local privacy lists of the developer (optional) |
+| `~/.cache/cyberghost-gui` | server lists; may be deleted at any time |
 
-`CGHOST_GUI_HOME` selects another folder.
+The variables `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_CACHE_HOME` move these
+folders. Releases up to 0.5.1 kept everything in `~/scripts/cyberghost-gui`; the
+first start of a newer release, and `install.sh`, move those files once. Nothing
+is overwritten, every move is reported, and the NetworkManager profile is pointed
+at the moved configuration. While the VPN is connected the old copy of the
+configuration stays and is removed on a later start.
 
 ## Use case: first connection
 
@@ -61,8 +72,7 @@ you choose **Trennen**.
 ## Update
 
 ~~~bash
-source .venv/bin/activate
-update/apply-release.sh
+cd ~/Projects/cyberghost-gui && git switch develop && git pull --ff-only && git fetch --tags origin && ./install.sh vX.Y.Z && ~/.local/bin/cyberghost-gui --version
 ~~~
 
 A running application switches to the new release when it is idle.

@@ -27,7 +27,7 @@ def test_damaged_settings_are_ignored(text: str) -> None:
     Args:
         text: File content.
     """
-    store.private_dir(paths.app_dir())
+    store.private_dir(paths.config_dir())
     paths.settings_file().write_text(text, encoding="utf-8")
     assert store.read_settings() == {}
 
@@ -70,8 +70,18 @@ def test_paths(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch: Patch helper.
     """
     monkeypatch.undo()
+    monkeypatch.setenv("HOME", "/home/u")
     monkeypatch.delenv("CGHOST_GUI_HOME", raising=False)
-    assert paths.app_dir().parts[-2:] == ("scripts", "cyberghost-gui")
+    monkeypatch.setenv("XDG_CONFIG_HOME", "")
+    monkeypatch.setenv("XDG_DATA_HOME", "relative/path")
+    monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
+    assert str(paths.settings_file()) == "/home/u/.config/cyberghost-gui/settings.json"
+    assert str(paths.profile_dir()) == "/home/u/.config/cyberghost-gui/profile"
+    assert str(paths.vendor_binary()) == "/home/u/.local/share/cyberghost-gui/vendor/cyberghostvpn"
+    assert str(paths.cache_dir()) == "/home/u/.cache/cyberghost-gui"
+    assert str(paths.legacy_dir()) == "/home/u/scripts/cyberghost-gui"
+    monkeypatch.setenv("XDG_CONFIG_HOME", "/x/conf")
+    assert str(paths.config_dir()) == "/x/conf/cyberghost-gui"
     assert paths.vendor_home().parts[-2:] == (getpass.getuser(), ".cyberghost")
 
 

@@ -1,7 +1,7 @@
 name: quality-gates
 
-# History is linear: branches are rebased and fast-forwarded (see CONTRIBUTING.md).
-#   pull_request into main/develop   all gates
+# Branches are merged through pull requests by tools/release.sh (see CONTRIBUTING.md).
+#   pull_request into main/develop   all gates (required checks of the branch protection)
 #   push of a tag v*                 release-check only
 #   workflow_dispatch                manual run of the gates
 on:
@@ -28,11 +28,11 @@ jobs:
           python-version: ${{ matrix.python }}
           cache: pip
           cache-dependency-path: requirements-dev.txt
-      - name: system libraries for GTK and PyGObject
+      - name: system libraries for GTK and PyGObject, shellcheck
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends xvfb gir1.2-gtk-4.0 \
-            libgirepository-2.0-dev libcairo2-dev pkg-config adwaita-icon-theme
+            libgirepository-2.0-dev libcairo2-dev pkg-config adwaita-icon-theme shellcheck
       - name: python tools and package
         run: pip install -r requirements-dev.txt
       - name: quality gates

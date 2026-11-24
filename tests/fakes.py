@@ -108,6 +108,7 @@ class FakeSystem:  # pylint: disable=too-many-instance-attributes
         self.vendor_output: str | None = None
         self.vendor_session_expired = False
         self.ages = "65\n"
+        self.vpn_files: dict[str, str] = {}
 
     def popen(self, cmd: list[str], **_: Any) -> FakeProcess:
         """Replace ``subprocess.Popen`` for the connection.
@@ -156,6 +157,9 @@ class FakeSystem:  # pylint: disable=too-many-instance-attributes
                     self.remote = word[7:]
                 elif word.startswith("username="):
                     self.username = word[9:]
+                elif word.split("=", 1)[0] in ("ca", "cert", "key"):
+                    name, value = word.split("=", 1)
+                    self.vpn_files[name] = value
         return Result(0, "", "")
 
     def _nmcli_query(self, args: list[str]) -> Result | None:
@@ -171,7 +175,9 @@ class FakeSystem:  # pylint: disable=too-many-instance-attributes
             "NAME": Result(0, "lan\nCyberGhost-GUI\n" if self.profile else "lan\n", ""),
             "GENERAL.STATE": Result(0 if self.state else 10, f"{self.state}\n", ""),
             "GENERAL.IP-IFACE": Result(0, "lo\n" if self.state == "activated" else "\n", ""),
-            "vpn.data": Result(0, f"cipher = x, remote = {self.remote}, port = 443\n", ""),
+            "vpn.data": Result(0, "".join(f"{name} = {value}, "
+                                          for name, value in self.vpn_files.items())
+                               + f"cipher = x, remote = {self.remote}, port = 443\n", ""),
         }
         if args[:3] == ["-t", "-f", "NAME"]:
             return answers["NAME"]

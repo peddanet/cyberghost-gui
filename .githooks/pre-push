@@ -3,8 +3,7 @@
 #
 # Activate once per clone (normal user):
 #     git config core.hooksPath .githooks
-# Bypass in an emergency (CI still enforces the gates):
-#     git push --no-verify
+# Never bypass it with --no-verify; fix the finding instead.
 #
 # Pushing tags or deleting branches only does not run the gates.
 
