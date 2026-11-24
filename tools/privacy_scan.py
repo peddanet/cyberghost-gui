@@ -4,7 +4,8 @@
 The terms are never part of the repository - a list of them would itself
 reveal what it protects. All existing local lists are combined:
 
-* ``$CGHOST_GUI_HOME/privacy`` or ``~/scripts/cyberghost-gui/privacy``
+* ``$XDG_CONFIG_HOME/cyberghost-gui/privacy`` (default ``~/.config/cyberghost-gui/privacy``)
+* ``$CGHOST_GUI_HOME/privacy`` or ``~/scripts/cyberghost-gui/privacy`` (layout up to 0.5.1)
 * ``~/.config/mediatools/privacy``
 * ``~/.local/share/filetag/privacy``
 
@@ -13,7 +14,9 @@ line, ``#`` starts a comment. Allowed phrases are blanked out before the
 search, so a listed term stays forbidden everywhere except inside them.
 
 Scanned are the contents of all tracked files (PDFs via ``pdftotext`` if
-installed), the tracked file paths and all commit texts. Matching ignores
+installed), the tracked file paths, all commit texts and the names and
+e-mail addresses stored in commits (author, committer) and annotated tags
+(tagger): git fills these from the host name when no identity is configured. Matching ignores
 case; a term must not be part of a longer word. Without any local term the
 scan is skipped, so the check is neutral in CI; ``--require`` turns this
 case into a failure for steps that publish.
@@ -88,8 +91,12 @@ class PrivacyScan:
         Returns:
             Paths, the folder of this project first.
         """
-        own = os.environ.get("CGHOST_GUI_HOME") or os.path.expanduser("~/scripts/cyberghost-gui")
-        return [os.path.join(own, "privacy"),
+        config = os.environ.get("XDG_CONFIG_HOME", "")
+        if not os.path.isabs(config):
+            config = os.path.expanduser("~/.config")
+        legacy = os.environ.get("CGHOST_GUI_HOME") or os.path.expanduser("~/scripts/cyberghost-gui")
+        return [os.path.join(config, "cyberghost-gui", "privacy"),
+                os.path.join(legacy, "privacy"),
                 os.path.expanduser("~/.config/mediatools/privacy"),
                 os.path.expanduser("~/.local/share/filetag/privacy")]
 
@@ -164,8 +171,21 @@ class PrivacyScan:
             for match in self.pattern.finditer(line):
                 self.findings.append((f"{location}:{number}", match.group(1)))
 
+    def _scan_identities(self) -> None:
+        """Search the names and addresses stored in commits and annotated tags."""
+        commits = self._git("log", "--all", "--format=%h%x00%an <%ae>%x00%cn <%ce>")
+        for line in commits.splitlines():
+            commit, author, committer = line.split("\0")
+            self._search(f"commit {commit} author", author)
+            self._search(f"commit {commit} committer", committer)
+        tags = self._git("for-each-ref", "refs/tags",
+                         "--format=%(refname:short)%00%(taggername) %(taggeremail)")
+        for line in tags.splitlines():
+            tag, tagger = line.split("\0")
+            self._search(f"tag {tag} tagger", tagger)
+
     def run(self) -> int:
-        """Scan files, paths and commit texts.
+        """Scan files, paths, commit texts and stored identities.
 
         Returns:
             0 if clean or skipped, 1 if terms were found.
@@ -182,6 +202,7 @@ class PrivacyScan:
                 self._search(path, text)
         log = self._git("log", "--all", "--format=commit %h%n%B")
         self._search("commit texts", log)
+        self._scan_identities()
         for location, term in self.findings:
             print(f"{location}: {term}")
         print(f"privacy scan: {len(self.terms)} term(s), {self.allowed_count} allowed phrase(s), "

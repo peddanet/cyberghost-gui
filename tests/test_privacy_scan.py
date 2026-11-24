@@ -95,3 +95,41 @@ def test_require_fails_without_list(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     assert module.main() == 2
     monkeypatch.setattr(sys, "argv", ["scan"])
     assert module.main() == 0
+
+
+def test_identities_are_scanned(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Names and addresses of authors, committers and taggers count as text.
+
+    Args:
+        tmp_path: Temporary folder.
+        capsys: Output capture.
+    """
+    repo = repository(tmp_path)
+    subprocess.run(["git", "-C", repo, "-c", "user.name=Box Owner",
+                    "-c", "user.email=owner@hostbox.example", "tag", "-a", "v1", "-m", "v1"],
+                   check=True, capture_output=True)
+    subprocess.run(["git", "-C", repo, "-c", "user.name=Box Owner",
+                    "-c", "user.email=owner@hostbox.example", "commit", "--amend", "-q",
+                    "--no-edit"], check=True, capture_output=True)
+    assert scanner().PrivacyScan(repo, ["hostbox"]).run() == 1
+    output = capsys.readouterr().out
+    assert "committer:1: hostbox" in output and "tag v1 tagger:1: hostbox" in output
+    assert "author:1: hostbox" not in output
+
+
+def test_config_folder_list(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The list in the configuration folder of the XDG layout counts.
+
+    Args:
+        tmp_path: Temporary folder.
+        monkeypatch: Patch helper.
+    """
+    module = scanner()
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "conf"))
+    folder = tmp_path / "conf/cyberghost-gui/privacy"
+    folder.mkdir(parents=True)
+    (folder / "denylist.txt").write_text("three\n", encoding="utf-8")
+    assert module.PrivacyScan.read_list("deny") == ["three"]
+    monkeypatch.setenv("XDG_CONFIG_HOME", "relative")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    assert module.PrivacyScan.list_folders()[0] == str(tmp_path / ".config/cyberghost-gui/privacy")

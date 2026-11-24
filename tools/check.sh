@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Quality gates. The same script runs locally (pre-push hook) and in CI.
 #
-#   0. privacy  no locally listed term in files, paths or commit texts
-#   1. format   pycodestyle, maximum line length 100
-#   2. lint     pylint incl. Google-style docstring checks, score 10.00/10
-#   3. types    mypy
-#   4. security bandit
-#   5. tests    pytest with branch coverage of at least 90 %
+#   0. privacy  no locally listed term in files, paths, commit texts or identities
+#   1. shell    shellcheck over every shell script
+#   2. format   pycodestyle, maximum line length 100
+#   3. lint     pylint incl. Google-style docstring checks, score 10.00/10
+#   4. types    mypy
+#   5. security bandit
+#   6. tests    pytest with branch coverage of at least 90 %
 #
 # Usage: tools/check.sh [--fast]     --fast skips the test gate
 # Runs as a normal user. The project venv is activated automatically.
@@ -17,14 +18,10 @@ cd "$(dirname "$0")/.."
 FAST=0
 [[ "${1:-}" == "--fast" ]] && FAST=1
 
-if [[ -z "${VIRTUAL_ENV:-}" && -z "${CI:-}" ]]; then
-    if [[ ! -f .venv/bin/activate ]]; then
-        echo "no .venv: python3 -m venv --system-site-packages .venv" \
-             "&& source .venv/bin/activate && pip install -r requirements-dev.txt" >&2
-        exit 2
-    fi
-    # shellcheck disable=SC1091
+if [[ -z "${VIRTUAL_ENV:-}" && -f .venv/bin/activate ]]; then
+    # shellcheck disable=SC1091  # path chosen at run time
     source .venv/bin/activate
+    echo "venv: .venv (activated for this check)"
 fi
 
 gate() {
@@ -35,12 +32,17 @@ gate() {
 
 for tool in pycodestyle pylint mypy bandit; do
     command -v "$tool" >/dev/null || {
-        echo "missing tool: $tool  ->  pip install -r requirements-dev.txt" >&2
+        echo "missing tool: $tool  ->  .venv/bin/pip install -r requirements-dev.txt" >&2
         exit 2
     }
 done
+command -v shellcheck >/dev/null || {
+    echo "missing tool: shellcheck  ->  sudo apt install shellcheck" >&2
+    exit 2
+}
 
 gate privacy  python3 tools/privacy_scan.py
+gate shell    shellcheck install.sh tools/*.sh .githooks/pre-push data/90-cyberghost-gui-ipv6
 gate format   pycodestyle --max-line-length=100 src tests tools
 gate lint     pylint --fail-under=10 src tests tools
 gate types    mypy

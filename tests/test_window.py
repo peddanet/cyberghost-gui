@@ -463,6 +463,49 @@ def test_main(monkeypatch: pytest.MonkeyPatch) -> None:
     created.assert_called_once_with(hidden=True)
 
 
+def test_main_version(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    """``--version`` prints the version and starts nothing.
+
+    Args:
+        monkeypatch: Patch helper.
+        capsys: Output capture.
+    """
+    created = MagicMock()
+    monkeypatch.setattr(application, "Application", created)
+    monkeypatch.setattr(application.sys, "argv", ["x", application.VERSION])
+    assert application.main() == 0
+    assert capsys.readouterr().out == f"cyberghost-gui {application.__version__}\n"
+    created.assert_not_called()
+
+
+def test_main_moves_old_files(monkeypatch: pytest.MonkeyPatch,
+                              capsys: pytest.CaptureFixture[str]) -> None:
+    """The start reports the move of old files and survives a failing move.
+
+    Args:
+        monkeypatch: Patch helper.
+        capsys: Output capture.
+    """
+    created = MagicMock()
+    created.return_value.run.return_value = 0
+    monkeypatch.setattr(application, "Application", created)
+    monkeypatch.setattr(application.sys, "argv", ["x"])
+    monkeypatch.setattr(application.migrate, "migrate", lambda: ["verschoben: a -> b"])
+    assert application.main() == 0
+    assert "verschoben: a -> b" in capsys.readouterr().err
+
+    def broken() -> list[str]:
+        """Fail like a full disk.
+
+        Raises:
+            OSError: Always.
+        """
+        raise OSError("disk full")
+    monkeypatch.setattr(application.migrate, "migrate", broken)
+    assert application.main() == 0
+    assert "disk full" in capsys.readouterr().err
+
+
 def test_errors_are_readable() -> None:
     """Errors keep their text."""
     assert str(CgError("x")) == "x"
