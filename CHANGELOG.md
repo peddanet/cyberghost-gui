@@ -5,6 +5,8 @@ All notable changes are listed here. New entries go under `## [Unreleased]`;
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-24
+
 ### Added
 
 - `cyberghost-gui --version` and the command `~/.local/bin/cyberghost-gui`.
